@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureVault Dashboard</title>
+  <meta name="description" content="SecureVault dashboard for secure document management and access monitoring.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.local.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/auth.js" defer></script>
+  <script src="js/dashboard.js" defer></script>
+</head>
+<body class="dashboard-page">
+  <div id="pageLoading" class="page-loading" aria-live="polite">Loading SecureVault dashboard...</div>
+
+  <header class="topbar card">
+    <div class="brand-row compact">
+      <div class="brand-mark small" aria-hidden="true">
+        <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+          <path d="M32 6 52 14v16c0 14-8.5 23.7-20 28-11.5-4.3-20-14-20-28V14l20-8Z" fill="currentColor"></path>
+          <path d="M32 20a8 8 0 0 1 8 8v4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H22a2 2 0 0 1-2-2V34a2 2 0 0 1 2-2h2v-4a8 8 0 0 1 8-8Zm0 6a2 2 0 0 0-2 2v4h4v-4a2 2 0 0 0-2-2Z" fill="#f8fbff"></path>
+        </svg>
+      </div>
+      <div>
+        <p class="eyebrow">SecureVault</p>
+        <h1 class="topbar-title">Dashboard</h1>
+      </div>
+    </div>
+
+    <div class="topbar-meta">
+      <span id="topbarSecurity" class="status-pill demo">DEMO MODE</span>
+      <span id="topbarUser" class="topbar-user">demo@securevault.local</span>
+      <button id="logoutButton" class="btn btn-secondary" type="button">Logout</button>
+    </div>
+  </header>
+
+  <div class="app-layout">
+    <aside class="sidebar card">
+      <nav aria-label="Primary navigation">
+        <a class="sidebar-link active" href="#dashboardSummary">Dashboard</a>
+        <a class="sidebar-link" href="#documentsSection">My Documents</a>
+        <a class="sidebar-link" href="#uploadSection">Upload</a>
+        <a class="sidebar-link" href="#auditSection">Audit Logs</a>
+        <a class="sidebar-link" href="#securitySection">Settings</a>
+      </nav>
+    </aside>
+
+    <main class="dashboard-main">
+      <section class="hero card" id="dashboardSummary">
+        <div>
+          <p class="eyebrow">Welcome back, User</p>
+          <h2>Manage your secure documents and monitor access activity.</h2>
+          <p class="hero-text">A clean demo dashboard for document control, access visibility, and future AWS integration.</p>
+        </div>
+        <div class="hero-status card-inset">
+          <div>
+            <span class="label">Security status</span>
+            <strong>Protected</strong>
+          </div>
+          <div>
+            <span class="label">Mode</span>
+            <strong>Demo Mode</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary-grid" id="summaryCards" aria-label="Summary statistics"></section>
+
+      <section class="two-column-grid">
+        <article class="card upload-card" id="uploadSection">
+          <div class="card-header">
+            <div>
+              <p class="eyebrow">Upload</p>
+              <h3>Upload a Document</h3>
+            </div>
+            <span class="status-pill neutral">Local Demo</span>
+          </div>
+          <p class="muted">Upload a document to your private SecureVault storage.</p>
+
+          <div id="uploadDropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload a document by dragging and dropping or selecting a file">
+            <input id="uploadInput" type="file" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" hidden>
+            <div class="dropzone-copy">
+              <strong>Drag and drop your file here</strong>
+              <span>Supported: PDF, DOC, DOCX, TXT, PNG, JPG</span>
+            </div>
+            <button id="chooseFileButton" class="btn btn-secondary" type="button">Choose File</button>
+          </div>
+
+          <div class="upload-meta">
+            <div><span class="label">Selected file</span><strong id="selectedFileName">No file selected</strong></div>
+            <div><span class="label">File size</span><strong id="selectedFileSize">0 KB</strong></div>
+          </div>
+          <p id="uploadError" class="form-message error" aria-live="polite"></p>
+
+          <div class="progress-shell" aria-label="Upload progress">
+            <div id="uploadProgressBar" class="progress-bar" style="width: 0%"></div>
+          </div>
+          <div class="action-row">
+            <button id="uploadButton" class="btn btn-primary" type="button" disabled>Upload</button>
+            <button id="cancelUploadButton" class="btn btn-secondary" type="button">Cancel</button>
+          </div>
+        </article>
+
+        <article class="card security-card" id="securitySection">
+          <div class="card-header">
+            <div>
+              <p class="eyebrow">Security</p>
+              <h3>Security Status</h3>
+            </div>
+            <span class="status-pill good">Protected</span>
+          </div>
+          <ul class="security-list" id="securityChecklist">
+            <li><span>Authentication</span><strong>Protected</strong></li>
+            <li><span>Storage</span><strong>Private</strong></li>
+            <li><span>Encryption</span><strong>SSE-KMS</strong></li>
+            <li><span>Access</span><strong>Authenticated</strong></li>
+            <li><span>Audit Logging</span><strong>Enabled</strong></li>
+          </ul>
+          <div class="demo-label">Demo Mode</div>
+        </article>
+      </section>
+
+      <section class="card" id="documentsSection">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Documents</p>
+            <h3>My Documents</h3>
+          </div>
+          <span id="documentsCount" class="status-pill neutral">0 files</span>
+        </div>
+
+        <div class="controls-grid">
+          <label class="field">
+            <span>Search</span>
+            <input id="documentSearch" type="search" placeholder="Search file name or type" aria-label="Search documents">
+          </label>
+          <label class="field">
+            <span>Filter</span>
+            <select id="documentFilter" aria-label="Filter documents by file type">
+              <option value="all">All</option>
+              <option value="pdf">PDF</option>
+              <option value="doc">DOC/DOCX</option>
+              <option value="images">Images</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Sort</span>
+            <select id="documentSort" aria-label="Sort documents">
+              <option value="newest">Newest</option>
+              <option value="oldest">Oldest</option>
+              <option value="name">Name</option>
+              <option value="size">Size</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table" aria-label="Documents table">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Type</th>
+                <th>Size</th>
+                <th>Uploaded</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="documentsTbody"></tbody>
+          </table>
+        </div>
+        <div id="documentsEmptyState" class="empty-state" hidden>
+          <strong>No documents yet</strong>
+          <p>Upload your first document to get started.</p>
+        </div>
+      </section>
+
+      <section class="card" id="auditSection">
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Audit Logs</p>
+            <h3>Access Activity</h3>
+          </div>
+          <span id="auditCount" class="status-pill neutral">0 events</span>
+        </div>
+        <p class="muted">Monitor who accessed your documents and when.</p>
+
+        <div class="controls-grid audit-controls">
+          <label class="field">
+            <span>Search</span>
+            <input id="auditSearch" type="search" placeholder="Search file, user, or action" aria-label="Search audit logs">
+          </label>
+          <label class="field">
+            <span>Action</span>
+            <select id="auditActionFilter" aria-label="Filter audit logs by action">
+              <option value="all">All Actions</option>
+              <option value="UPLOAD">UPLOAD</option>
+              <option value="DOWNLOAD">DOWNLOAD</option>
+              <option value="VIEW">VIEW</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Date</span>
+            <input id="auditDateFilter" type="date" aria-label="Filter audit logs by date">
+          </label>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="data-table audit-table" aria-label="Audit log table">
+            <thead>
+              <tr>
+                <th>File</th>
+                <th>Action</th>
+                <th>User</th>
+                <th>Date &amp; Time</th>
+                <th>IP Address</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="auditTbody"></tbody>
+          </table>
+        </div>
+        <div id="auditEmptyState" class="empty-state" hidden>
+          <strong>No matching audit entries</strong>
+          <p>Try a different search or filter.</p>
+        </div>
+        <div class="load-more-row">
+          <button id="loadMoreAuditButton" class="btn btn-secondary" type="button">Load More</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="detailsModal" class="modal-backdrop" hidden>
+    <div class="modal card" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+      <div class="card-header">
+        <div>
+          <p class="eyebrow">File Details</p>
+          <h3 id="detailsTitle">Document information</h3>
+        </div>
+        <button id="closeDetailsButton" class="icon-button" type="button" aria-label="Close details dialog">×</button>
+      </div>
+      <div id="detailsContent" class="details-content"></div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

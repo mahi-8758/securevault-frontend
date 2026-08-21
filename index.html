@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureVault | Secure document sharing</title>
+  <meta name="description " content="SecureVault is a secure document-sharing web application with demo authentication and local mock data.">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.local.js" defer></script>
+  <script src="js/api.js" defer></script>
+  <script src="js/auth.js" defer></script>
+</head>
+<body class="auth-page">
+  <main class="auth-shell">
+    <section class="auth-hero card">
+      <div class="brand-row">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" role="img" aria-hidden="true">
+            <path d="M32 6 52 14v16c0 14-8.5 23.7-20 28-11.5-4.3-20-14-20-28V14l20-8Z" fill="currentColor"></path>
+            <path d="M32 20a8 8 0 0 1 8 8v4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H22a2 2 0 0 1-2-2V34a2 2 0 0 1 2-2h2v-4a8 8 0 0 1 8-8Zm0 6a2 2 0 0 0-2 2v4h4v-4a2 2 0 0 0-2-2Z" fill="#f8fbff"></path>
+          </svg>
+        </div>
+        <div>
+          <p class="eyebrow">SecureVault</p>
+          <h1>Your documents. Your access. Your control.</h1>
+        </div>
+      </div>
+      <p class="hero-text">Secure document sharing with controlled access and audit visibility.</p>
+      <div class="hero-panel" aria-hidden="true">
+        <svg viewBox="0 0 420 320" class="hero-illustration">
+          <rect x="20" y="22" width="380" height="276" rx="28" fill="#f7fbff" stroke="#dbe5f2"/>
+          <rect x="52" y="48" width="150" height="98" rx="18" fill="#ffffff" stroke="#dbe5f2"/>
+          <rect x="218" y="48" width="150" height="98" rx="18" fill="#ffffff" stroke="#dbe5f2"/>
+          <rect x="52" y="164" width="316" height="96" rx="18" fill="#ffffff" stroke="#dbe5f2"/>
+          <circle cx="126" cy="97" r="28" fill="#16324f" opacity="0.08"/>
+          <path d="M126 77c-11 0-20 9-20 20v4h-4v18h48v-18h-4v-4c0-11-9-20-20-20Zm0 8c6 0 12 5 12 12v4h-24v-4c0-7 6-12 12-12Zm0 20a6 6 0 1 1 0-12 6 6 0 0 1 0 12Z" fill="#1f4b72"/>
+          <rect x="248" y="74" width="86" height="14" rx="7" fill="#1f4b72" opacity="0.18"/>
+          <rect x="248" y="96" width="62" height="10" rx="5" fill="#1f4b72" opacity="0.12"/>
+          <rect x="74" y="186" width="272" height="12" rx="6" fill="#1f4b72" opacity="0.12"/>
+          <rect x="74" y="210" width="220" height="12" rx="6" fill="#1f4b72" opacity="0.10"/>
+          <rect x="74" y="234" width="166" height="12" rx="6" fill="#1f4b72" opacity="0.08"/>
+          <circle cx="316" cy="214" r="26" fill="#0f8a5f" opacity="0.12"/>
+          <path d="M316 196a12 12 0 0 0-12 12v4h-2a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2v-12a2 2 0 0 0-2-2h-2v-4a12 12 0 0 0-12-12Zm0 8a4 4 0 0 1 4 4v4h-8v-4a4 4 0 0 1 4-4Z" fill="#0f8a5f"/>
+        </svg>
+      </div>
+      <div class="hero-points">
+        <div><span class="dot"></span> Authenticated access</div>
+        <div><span class="dot"></span> Encrypted cloud storage</div>
+        <div><span class="dot"></span> Audit-ready visibility</div>
+      </div>
+    </section>
+
+    <section class="card auth-card">
+      <div class="card-header">
+        <div>
+          <p class="eyebrow">Demo Mode</p>
+          <h2>Sign in to your vault</h2>
+        </div>
+        <span class="status-pill demo">DEMO MODE</span>
+      </div>
+
+      <form id="loginForm" class="auth-form" novalidate>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="demo@securevault.local" autocomplete="email" required>
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="Enter any demo password" autocomplete="current-password" required>
+
+        <button id="signInButton" type="submit" class="btn btn-primary">Sign In</button>
+
+        <div class="auth-actions">
+          <button id="createAccountLink" type="button" class="link-button">Create Account</button>
+          <button id="forgotPasswordLink" type="button" class="link-button">Forgot Password?</button>
+        </div>
+
+        <p class="fine-print">Documents are protected using authenticated access and encrypted cloud storage. This prototype uses mock authentication and local demo data.</p>
+        <p id="authMessage" class="form-message" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.SecureVaultAuth) {
+        window.SecureVaultAuth.initAuthPage();
+      }
+    });
+  </script>
+</body>
+</html>
