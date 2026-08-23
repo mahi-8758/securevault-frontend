@@ -755,6 +755,7 @@
     dom = {
       pageLoading: document.getElementById('pageLoading'),
       topbarUser: document.getElementById('topbarUser'),
+      welcomeUser: document.getElementById('welcomeUser'),
       topbarSecurity: document.getElementById('topbarSecurity'),
       logoutButton: document.getElementById('logoutButton'),
       summaryCards: document.getElementById('summaryCards'),
@@ -786,7 +787,7 @@
       toastContainer: document.getElementById('toastContainer')
     };
 
-    if (!window.SecureVaultAuth.isAuthenticated()) {
+    if (!(await window.SecureVaultAuth.isAuthenticated())) {
       window.location.href = 'index.html';
       return;
     }
@@ -796,14 +797,17 @@
     if (dom.topbarUser && state.user) {
       dom.topbarUser.textContent = state.user.email;
     }
+    if (dom.welcomeUser && state.user) {
+      dom.welcomeUser.textContent = state.user.email;
+    }
 
     if (dom.topbarSecurity) {
-      dom.topbarSecurity.textContent = 'DEMO MODE';
+      dom.topbarSecurity.textContent = 'COGNITO';
     }
 
     bindEvents();
     await loadData(true);
-    showToast('Security', 'Authentication required. Demo session loaded.', 'security');
+    showToast('Security', 'Authenticated Cognito session loaded.', 'security');
   }
 
   window.addEventListener('DOMContentLoaded', init);

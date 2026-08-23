@@ -1,147 +1,240 @@
 (function (window) {
-  const STORAGE_KEY = 'securevault.currentUser';
+  let userPool;
 
-  const DEMO_USER = {
-    userId: 'demo-user-001',
-    name: 'Demo User',
-    email: 'demo@securevault.local',
-    role: 'Owner',
-    demoMode: true
-  };
-
-  function safeGetStorageValue() {
-    try {
-      return window.sessionStorage.getItem(STORAGE_KEY);
-    } catch (error) {
-      return null;
+  function getUserPool() {
+    if (userPool) {
+      return userPool;
     }
+    const config = window.SECUREVAULT_CONFIG || {};
+    if (!window.AmazonCognitoIdentity || !config.userPoolId || !config.clientId) {
+      throw new Error('Cognito authentication is not configured.');
+    }
+    userPool = new window.AmazonCognitoIdentity.CognitoUserPool({
+      UserPoolId: config.userPoolId,
+      ClientId: config.clientId
+    });
+    return userPool;
   }
 
-  function safeSetStorageValue(value) {
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    } catch (error) {
-      return false;
-    }
-    return true;
+  function createCognitoUser(email) {
+    return new window.AmazonCognitoIdentity.CognitoUser({ Username: email, Pool: getUserPool() });
   }
 
-  function safeRemoveStorageValue() {
-    try {
-      window.sessionStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      return false;
-    }
-    return true;
+  function getErrorMessage(error) {
+    const messages = {
+      UsernameExistsException: 'An account with this email already exists.',
+      UserNotConfirmedException: 'Please confirm your email address before signing in.',
+      NotAuthorizedException: 'The email or password is incorrect.',
+      UserNotFoundException: 'The email or password is incorrect.',
+      CodeMismatchException: 'The verification code is incorrect.',
+      ExpiredCodeException: 'The verification code has expired. Request a new code.',
+      InvalidPasswordException: 'Password does not meet the required security rules.',
+      LimitExceededException: 'Too many attempts. Please try again later.'
+    };
+    return messages[error && error.code] || (error && error.message) || 'Something went wrong. Please try again.';
+  }
+
+  function signUpUser(email, password) {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    const attribute = new window.AmazonCognitoIdentity.CognitoUserAttribute({ Name: 'email', Value: normalizedEmail });
+    return new Promise((resolve, reject) => {
+      try {
+        getUserPool().signUp(normalizedEmail, password, [attribute], null, (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          console.info('[SecureVault] Account created; email confirmation required.');
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  function confirmUser(email, code) {
+    return new Promise((resolve, reject) => {
+      try {
+        createCognitoUser(String(email || '').trim().toLowerCase()).confirmRegistration(code, true, (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          console.info('[SecureVault] Email confirmed.');
+          resolve(result);
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  function loginUser(email, password) {
+    const authenticationDetails = new window.AmazonCognitoIdentity.AuthenticationDetails({
+      Username: String(email || '').trim().toLowerCase(),
+      Password: password
+    });
+    const user = createCognitoUser(authenticationDetails.getUsername());
+    return new Promise((resolve, reject) => {
+      user.authenticateUser(authenticationDetails, {
+        onSuccess: (session) => {
+          console.info('[SecureVault] Sign-in succeeded.');
+          resolve({ user, session, idToken: session.getIdToken().getJwtToken() });
+        },
+        onFailure: reject,
+        newPasswordRequired: () => reject(new Error('A new password is required for this account.'))
+      });
+    });
   }
 
   function getCurrentUser() {
-    const storedValue = safeGetStorageValue();
-    if (!storedValue) {
-      return null;
-    }
-
     try {
-      return JSON.parse(storedValue);
+      return getUserPool().getCurrentUser();
     } catch (error) {
       return null;
     }
   }
 
-  function isAuthenticated() {
-    return Boolean(getCurrentUser());
+  function getCurrentSession() {
+    const user = getCurrentUser();
+    if (!user) {
+      return Promise.resolve(null);
+    }
+    return new Promise((resolve) => {
+      user.getSession((error, session) => resolve(!error && session && session.isValid() ? session : null));
+    });
   }
 
-  function loginUser(credentials = {}) {
-    const email = String(credentials.email || '').trim() || DEMO_USER.email;
-    const name = credentials.name ? String(credentials.name).trim() : DEMO_USER.name;
+  async function isAuthenticated() {
+    return Boolean(await getCurrentSession());
+  }
 
-    const user = {
-      ...DEMO_USER,
-      name,
-      email,
-      signedInAt: new Date().toISOString()
-    };
-
-    safeSetStorageValue(user);
-
-    return {
-      success: true,
-      user,
-      message: 'Signed in successfully in demo mode.'
-    };
+  async function getIdToken() {
+    const session = await getCurrentSession();
+    return session ? session.getIdToken().getJwtToken() : null;
   }
 
   function logoutUser() {
-    safeRemoveStorageValue();
-    return {
-      success: true,
-      message: 'Signed out successfully.'
-    };
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      currentUser.signOut();
+    }
+    console.info('[SecureVault] Signed out.');
+    return { success: true, message: 'Signed out successfully.' };
   }
 
-  function initAuthPage() {
-    const form = document.getElementById('loginForm');
-    const emailInput = document.getElementById('email');
-    const passwordInput = document.getElementById('password');
-    const message = document.getElementById('authMessage');
-    const signInButton = document.getElementById('signInButton');
-    const createAccountLink = document.getElementById('createAccountLink');
-    const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+  function setMessage(element, text, isError) {
+    if (element) {
+      element.textContent = text;
+      element.classList.toggle('error', Boolean(isError));
+    }
+  }
 
-    if (!form) {
+  function showAuthForm(form, visible) {
+    if (form) {
+      form.hidden = !visible;
+    }
+  }
+
+  async function initAuthPage() {
+    const loginForm = document.getElementById('loginForm');
+    const signupForm = document.getElementById('signupForm');
+    const confirmForm = document.getElementById('confirmForm');
+    const authMessage = document.getElementById('authMessage');
+    const signupMessage = document.getElementById('signupMessage');
+    const confirmMessage = document.getElementById('confirmMessage');
+    if (!loginForm) {
       return;
     }
-
-    if (isAuthenticated()) {
+    if (await isAuthenticated()) {
       window.location.href = 'dashboard.html';
       return;
     }
 
-    function setMessage(text, isError = false) {
-      if (!message) {
-        return;
-      }
-      message.textContent = text;
-      message.classList.toggle('error', isError);
-    }
-
-    form.addEventListener('submit', (event) => {
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const signInButton = document.getElementById('signInButton');
+    loginForm.addEventListener('submit', async (event) => {
       event.preventDefault();
-
-      const email = emailInput ? emailInput.value : '';
-      const password = passwordInput ? passwordInput.value : '';
-
       signInButton.disabled = true;
       signInButton.textContent = 'Signing In...';
-      setMessage('Signing in using demo authentication...');
-
-      window.setTimeout(() => {
-        loginUser({ email, password });
-        setMessage('Login successful. Redirecting to your dashboard...');
+      setMessage(authMessage, 'Signing in securely...');
+      try {
+        await loginUser(emailInput.value, passwordInput.value);
+        setMessage(authMessage, 'Login successful. Redirecting to your dashboard...');
         window.location.href = 'dashboard.html';
-      }, 450);
+      } catch (error) {
+        setMessage(authMessage, getErrorMessage(error), true);
+        signInButton.disabled = false;
+        signInButton.textContent = 'Sign In';
+      }
     });
 
-    if (createAccountLink) {
-      createAccountLink.addEventListener('click', () => {
-        setMessage('Account creation will be connected to Cognito in the next phase.');
-      });
-    }
+    document.getElementById('createAccountLink').addEventListener('click', () => {
+      showAuthForm(loginForm, false);
+      showAuthForm(signupForm, true);
+      setMessage(authMessage, '');
+    });
+    document.getElementById('backToLoginLink').addEventListener('click', () => {
+      showAuthForm(signupForm, false);
+      showAuthForm(confirmForm, false);
+      showAuthForm(loginForm, true);
+    });
+    document.getElementById('forgotPasswordLink').addEventListener('click', () => {
+      setMessage(authMessage, 'Password reset is not enabled for this phase.');
+    });
 
-    if (forgotPasswordLink) {
-      forgotPasswordLink.addEventListener('click', () => {
-        setMessage('Password reset will be handled by Cognito later.');
-      });
-    }
+    signupForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('signupEmail').value;
+      const password = document.getElementById('signupPassword').value;
+      const confirmPassword = document.getElementById('signupConfirmPassword').value;
+      const signUpButton = document.getElementById('signUpButton');
+      if (password !== confirmPassword) {
+        setMessage(signupMessage, 'Passwords do not match.', true);
+        return;
+      }
+      signUpButton.disabled = true;
+      setMessage(signupMessage, 'Creating your account...');
+      try {
+        await signUpUser(email, password);
+        document.getElementById('confirmEmail').value = email;
+        showAuthForm(signupForm, false);
+        showAuthForm(confirmForm, true);
+        setMessage(confirmMessage, 'Check your email for the verification code.');
+      } catch (error) {
+        setMessage(signupMessage, getErrorMessage(error), true);
+        signUpButton.disabled = false;
+      }
+    });
+
+    confirmForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const confirmButton = document.getElementById('confirmButton');
+      confirmButton.disabled = true;
+      setMessage(confirmMessage, 'Confirming your account...');
+      try {
+        await confirmUser(document.getElementById('confirmEmail').value, document.getElementById('confirmationCode').value.trim());
+        showAuthForm(confirmForm, false);
+        showAuthForm(loginForm, true);
+        setMessage(authMessage, 'Email confirmed. You can now sign in.');
+      } catch (error) {
+        setMessage(confirmMessage, getErrorMessage(error), true);
+        confirmButton.disabled = false;
+      }
+    });
   }
 
   window.SecureVaultAuth = {
+    signUpUser,
+    confirmUser,
     loginUser,
     logoutUser,
     getCurrentUser,
+    getCurrentSession,
+    getIdToken,
     isAuthenticated,
-    initAuthPage,
-    demoUser: DEMO_USER
+    initAuthPage
   };
 })(window);

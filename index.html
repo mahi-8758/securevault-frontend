@@ -6,8 +6,10 @@
   <title>SecureVault | Secure document sharing</title>
   <meta name="description " content="SecureVault is a secure document-sharing web application with demo authentication and local mock data.">
   <link rel="stylesheet" href="css/style.css">
+  <script src="js/config.js" defer></script>
   <script src="js/config.local.js" defer></script>
   <script src="js/api.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/amazon-cognito-identity-js@6.3.12/dist/amazon-cognito-identity.min.js" defer></script>
   <script src="js/auth.js" defer></script>
 </head>
 <body class="auth-page">
@@ -53,10 +55,10 @@
     <section class="card auth-card">
       <div class="card-header">
         <div>
-          <p class="eyebrow">Demo Mode</p>
+          <p class="eyebrow">Secure access</p>
           <h2>Sign in to your vault</h2>
         </div>
-        <span class="status-pill demo">DEMO MODE</span>
+        <span class="status-pill good">COGNITO</span>
       </div>
 
       <form id="loginForm" class="auth-form" novalidate>
@@ -64,7 +66,7 @@
         <input id="email" name="email" type="email" placeholder="demo@securevault.local" autocomplete="email" required>
 
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" placeholder="Enter any demo password" autocomplete="current-password" required>
+        <input id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" required>
 
         <button id="signInButton" type="submit" class="btn btn-primary">Sign In</button>
 
@@ -73,8 +75,43 @@
           <button id="forgotPasswordLink" type="button" class="link-button">Forgot Password?</button>
         </div>
 
-        <p class="fine-print">Documents are protected using authenticated access and encrypted cloud storage. This prototype uses mock authentication and local demo data.</p>
+        <p class="fine-print">Documents are protected using authenticated access and encrypted cloud storage.</p>
         <p id="authMessage" class="form-message" aria-live="polite"></p>
+      </form>
+
+      <form id="signupForm" class="auth-form" novalidate hidden>
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">New account</p>
+            <h2>Create your vault account</h2>
+          </div>
+        </div>
+        <label for="signupEmail">Email</label>
+        <input id="signupEmail" name="email" type="email" placeholder="you@example.com" autocomplete="email" required>
+        <label for="signupPassword">Password</label>
+        <input id="signupPassword" name="password" type="password" placeholder="Create a password" autocomplete="new-password" required>
+        <label for="signupConfirmPassword">Confirm Password</label>
+        <input id="signupConfirmPassword" name="confirmPassword" type="password" placeholder="Repeat your password" autocomplete="new-password" required>
+        <button id="signUpButton" type="submit" class="btn btn-primary">Create Account</button>
+        <div class="auth-actions">
+          <button id="backToLoginLink" type="button" class="link-button">Back to Sign In</button>
+        </div>
+        <p id="signupMessage" class="form-message" aria-live="polite"></p>
+      </form>
+
+      <form id="confirmForm" class="auth-form" novalidate hidden>
+        <div class="card-header">
+          <div>
+            <p class="eyebrow">Email verification</p>
+            <h2>Confirm your account</h2>
+          </div>
+        </div>
+        <label for="confirmEmail">Email</label>
+        <input id="confirmEmail" name="email" type="email" autocomplete="email" required>
+        <label for="confirmationCode">Verification code</label>
+        <input id="confirmationCode" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" required>
+        <button id="confirmButton" type="submit" class="btn btn-primary">Confirm Account</button>
+        <p id="confirmMessage" class="form-message" aria-live="polite"></p>
       </form>
     </section>
   </main>
