@@ -3,113 +3,77 @@
   const config = window.SECUREVAULT_CONFIG || {};
   let apiEndpoint = String(config.apiEndpoint || '').replace(/\/$/, '');
 
-  const localState = {
-    nextFileNumber: 4,
-    files: [
-      {
-        fileId: 'file-001',
-        fileName: 'annual-report.pdf',
-        fileType: 'PDF',
-        size: 2400000,
-        uploadedAt: '2026-08-21T10:32:00Z',
-        status: 'Encrypted'
-      },
-      {
-        fileId: 'file-002',
-        fileName: 'project-report.docx',
-        fileType: 'DOCX',
-        size: 1800000,
-        uploadedAt: '2026-08-20T14:05:00Z',
-        status: 'Encrypted'
-      },
-      {
-        fileId: 'file-003',
-        fileName: 'certificate.pdf',
-        fileType: 'PDF',
-        size: 850000,
-        uploadedAt: '2026-08-18T08:12:00Z',
-        status: 'Encrypted'
-      }
-    ],
-    auditLogs: [
-      {
-        logId: 'log-001',
-        fileId: 'file-001',
-        fileName: 'annual-report.pdf',
-        action: 'UPLOAD',
-        user: 'demo@securevault.local',
-        dateTime: '2026-08-21T10:32:00Z',
-        ipAddress: '192.168.1.10',
-        status: 'Success'
-      },
-      {
-        logId: 'log-002',
-        fileId: 'file-001',
-        fileName: 'annual-report.pdf',
-        action: 'DOWNLOAD',
-        user: 'demo@securevault.local',
-        dateTime: '2026-08-21T11:05:00Z',
-        ipAddress: '192.168.1.10',
-        status: 'Success'
-      },
-      {
-        logId: 'log-003',
-        fileId: 'file-003',
-        fileName: 'certificate.pdf',
-        action: 'VIEW',
-        user: 'demo@securevault.local',
-        dateTime: '2026-08-20T18:21:00Z',
-        ipAddress: '192.168.1.10',
-        status: 'Success'
-      },
-      {
-        logId: 'log-004',
-        fileId: 'file-002',
-        fileName: 'project-report.docx',
-        action: 'UPLOAD',
-        user: 'demo@securevault.local',
-        dateTime: '2026-08-20T14:05:00Z',
-        ipAddress: '192.168.1.10',
-        status: 'Success'
-      }
-    ]
-  };
-
-  function clone(value) {
-    return JSON.parse(JSON.stringify(value));
-  }
-
-  function delay(result, wait = 180) {
-    return new Promise((resolve) => {
-      window.setTimeout(() => resolve(clone(result)), wait);
-    });
-  }
-
   function supportsLiveApi() {
     return window.location.protocol !== 'file:';
   }
 
-  async function request(path, options = {}) {
-    if (!supportsLiveApi() || !apiEndpoint || apiEndpoint.includes('__API_ENDPOINT__')) {
-      throw new Error('Live API unavailable in file mode');
+  function getConfiguredApiEndpoint() {
+    if (!supportsLiveApi()) {
+      throw new Error('Live API requests are unavailable in file mode. Use a local HTTP server.');
     }
 
-    const response = await fetch(`${apiEndpoint}${path}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {})
-      },
-      ...options
-    });
+    if (!apiEndpoint || apiEndpoint.includes('__API_ENDPOINT__')) {
+      throw new Error('SecureVault API endpoint is not configured.');
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      const error = new Error(errorText || 'Request failed');
-      error.status = response.status;
+    return apiEndpoint;
+  }
+
+  async function getAuthHeaders() {
+    if (!window.SecureVaultAuth || typeof window.SecureVaultAuth.getIdToken !== 'function') {
+      throw new Error('SecureVaultAuth.getIdToken() is not available.');
+    }
+
+    const token = await window.SecureVaultAuth.getIdToken();
+    if (!token) {
+      throw new Error('No Cognito ID token is available for this request.');
+    }
+
+    return {
+      Authorization: `Bearer ${token}`
+    };
+  }
+
+  async function request(path, options = {}) {
+    console.log('[SecureVaultAPI] request start', { path, method: options.method || 'GET' });
+
+    try {
+      const endpoint = getConfiguredApiEndpoint();
+      const authHeaders = await getAuthHeaders();
+      console.log('[SecureVaultAPI] fetch invoking', `${endpoint}${path}`);
+      const response = await fetch(`${endpoint}${path}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders,
+          ...(options.headers || {})
+        },
+        ...options
+      });
+
+      let payload = {};
+      const responseText = await response.text();
+      if (responseText) {
+        try {
+          payload = JSON.parse(responseText);
+        } catch (error) {
+          payload = { message: responseText };
+        }
+      }
+
+      console.log('[SecureVaultAPI] fetch response', { status: response.status, ok: response.ok, payload });
+
+      if (!response.ok) {
+        const error = new Error((payload && (payload.message || payload.error)) || 'Request failed');
+        error.status = response.status;
+        error.response = payload;
+        throw error;
+      }
+
+      return payload;
+    } catch (error) {
+      console.error('[SecureVaultAPI] request error', error);
       throw error;
     }
-
-    return response.json();
   }
 
   function getFileTypeFromName(fileName) {
@@ -120,39 +84,107 @@
     return 'OTHER';
   }
 
-  function createFileId() {
-    const next = String(localState.nextFileNumber).padStart(3, '0');
-    localState.nextFileNumber += 1;
-    return `file-${next}`;
+  async function getFiles() {
+    return request('/files');
   }
 
-  function createLogId() {
-    return `log-${String(localState.auditLogs.length + 1).padStart(3, '0')}`;
+  async function getAuditLogs() {
+    return request('/audit');
   }
 
-  function addAuditLog(entry) {
-    localState.auditLogs.unshift({
-      logId: createLogId(),
-      ipAddress: '192.168.1.10',
-      status: 'Success',
-      user: 'demo@securevault.local',
-      ...entry
+  async function downloadFile(fileId) {
+    return request(`/download/${encodeURIComponent(fileId)}`);
+  }
+
+  async function uploadFile(payload) {
+    return request('/upload', {
+      method: 'POST',
+      body: JSON.stringify(payload)
     });
   }
 
-  function calculateStats() {
-    const totalStorage = localState.files.reduce((sum, file) => sum + Number(file.size || 0), 0);
-    const recentAccesses = localState.auditLogs.filter((entry) => {
-      const entryDate = new Date(entry.dateTime);
+  async function uploadToS3(uploadUrl, file) {
+    if (!uploadUrl) {
+      throw new Error('Upload URL is missing from the API response.');
+    }
+
+    if (!file || typeof file !== 'object' || typeof file.name === 'undefined') {
+      throw new Error('A valid file object is required for the S3 upload.');
+    }
+
+    const response = await fetch(uploadUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'S3 upload failed.');
+    }
+
+    return { success: true, message: 'S3 upload completed successfully.' };
+  }
+
+  async function getFile(fileId) {
+    if (!fileId) {
+      const error = new Error('A valid fileId is required for GET /files/{fileId}.');
+      error.status = 400;
+      throw error;
+    }
+
+    return request(`/files/${encodeURIComponent(fileId)}`);
+  }
+
+  async function deleteFile(fileId) {
+    console.log('[SecureVaultAPI] deleteFile called', fileId);
+
+    if (!fileId) {
+      const error = new Error('A valid fileId is required for DELETE /files/{fileId}.');
+      console.error('[SecureVaultAPI] invalid deleteFile fileId', fileId);
+      return {
+        success: false,
+        message: error.message
+      };
+    }
+
+    console.log('[SecureVaultAPI] sending DELETE request', fileId);
+    const response = await request(`/files/${encodeURIComponent(fileId)}`, {
+      method: 'DELETE'
+    });
+    console.log('[SecureVaultAPI] DELETE response', response);
+    return response;
+  }
+
+  async function getAuditLogsForFile(fileId) {
+    return {
+      success: false,
+      supported: false,
+      message: `Unsupported API method: GET /audit/${encodeURIComponent(fileId)} is not currently deployed.`
+    };
+  }
+
+  async function getDashboardStats() {
+    const [filesResponse, auditResponse] = await Promise.all([
+      getFiles(),
+      getAuditLogs()
+    ]);
+
+    const files = Array.isArray(filesResponse && filesResponse.files) ? filesResponse.files : [];
+    const logs = Array.isArray(auditResponse && auditResponse.logs) ? auditResponse.logs : [];
+    const totalStorage = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+    const recentAccesses = logs.filter((entry) => {
+      const entryDate = new Date(entry.timestamp);
       const now = new Date();
-      const delta = now.getTime() - entryDate.getTime();
-      return delta <= 7 * 24 * 60 * 60 * 1000;
+      return now.getTime() - entryDate.getTime() <= 7 * 24 * 60 * 60 * 1000;
     }).length;
 
     return {
       success: true,
       stats: {
-        totalDocuments: localState.files.length,
+        totalDocuments: files.length,
         storageUsed: totalStorage,
         recentAccesses,
         securityStatus: 'Protected'
@@ -160,157 +192,12 @@
     };
   }
 
-  async function getFiles() {
-    try {
-      return await request('/api/files');
-    } catch (error) {
-      if (error.status) throw error;
-      return delay({ success: true, files: localState.files });
-    }
-  }
-
-  async function getFile(fileId) {
-    try {
-      return await request(`/api/files/${encodeURIComponent(fileId)}`);
-    } catch (error) {
-      if (error.status) throw error;
-      const file = localState.files.find((item) => item.fileId === fileId);
-      return delay({ success: Boolean(file), file: file || null });
-    }
-  }
-
-  async function downloadFile(fileId) {
-    try {
-      return await request(`/api/files/${encodeURIComponent(fileId)}/download`);
-    } catch (error) {
-      if (error.status) throw error;
-      const file = localState.files.find((item) => item.fileId === fileId);
-      if (file) {
-        addAuditLog({
-          fileId: file.fileId,
-          fileName: file.fileName,
-          action: 'DOWNLOAD',
-          dateTime: new Date().toISOString()
-        });
-      }
-      return delay({
-        success: Boolean(file),
-        message: file ? 'Download link generated.' : 'File not found.'
-      });
-    }
-  }
-
-  async function uploadFile(payload) {
-    try {
-      return await request('/api/files/upload', {
-        method: 'POST',
-        body: JSON.stringify(payload)
-      });
-    } catch (error) {
-      if (error.status) throw error;
-      const fileName = payload.fileName || 'untitled.txt';
-      const fileType = payload.fileType || getFileTypeFromName(fileName);
-      const size = Number(payload.size || 0);
-      const file = {
-        fileId: createFileId(),
-        fileName,
-        fileType,
-        size,
-        uploadedAt: new Date().toISOString(),
-        status: 'Encrypted'
-      };
-
-      localState.files.unshift(file);
-      addAuditLog({
-        fileId: file.fileId,
-        fileName: file.fileName,
-        action: 'UPLOAD',
-        dateTime: file.uploadedAt
-      });
-
-      return delay({ success: true, file, message: 'Document uploaded successfully.' });
-    }
-  }
-
-  async function deleteFile(fileId) {
-    try {
-      return await request(`/api/files/${encodeURIComponent(fileId)}`, {
-        method: 'DELETE'
-      });
-    } catch (error) {
-      if (error.status) throw error;
-      const fileIndex = localState.files.findIndex((item) => item.fileId === fileId);
-      if (fileIndex === -1) {
-        return delay({ success: false, message: 'File not found.' });
-      }
-
-      const [removedFile] = localState.files.splice(fileIndex, 1);
-      addAuditLog({
-        fileId: removedFile.fileId,
-        fileName: removedFile.fileName,
-        action: 'DELETE',
-        dateTime: new Date().toISOString(),
-        status: 'Success'
-      });
-
-      return delay({ success: true, message: 'File deleted successfully.' });
-    }
-  }
-
-  async function getAuditLogs() {
-    try {
-      return await request('/api/audit-logs');
-    } catch (error) {
-      if (error.status) throw error;
-      return delay({ success: true, logs: localState.auditLogs });
-    }
-  }
-
-  async function getAuditLogsForFile(fileId) {
-    try {
-      return await request(`/api/audit-logs/${encodeURIComponent(fileId)}`);
-    } catch (error) {
-      if (error.status) throw error;
-      const logs = localState.auditLogs.filter((entry) => entry.fileId === fileId);
-      return delay({ success: true, logs });
-    }
-  }
-
-  async function getDashboardStats() {
-    try {
-      const [filesResponse, auditResponse] = await Promise.all([
-        getFiles(),
-        getAuditLogs()
-      ]);
-
-      const files = filesResponse.files || [];
-      const logs = auditResponse.logs || [];
-      const totalStorage = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
-      const recentAccesses = logs.filter((entry) => {
-        const entryDate = new Date(entry.dateTime);
-        const now = new Date();
-        return now.getTime() - entryDate.getTime() <= 7 * 24 * 60 * 60 * 1000;
-      }).length;
-
-      return {
-        success: true,
-        stats: {
-          totalDocuments: files.length,
-          storageUsed: totalStorage,
-          recentAccesses,
-          securityStatus: 'Protected'
-        }
-      };
-    } catch (error) {
-      return calculateStats();
-    }
-  }
-
   window.SecureVaultAPI = {
     getFiles,
     getFile,
     downloadFile,
     uploadFile,
+    uploadToS3,
     deleteFile,
     getAuditLogs,
     getAuditLogsForFile,

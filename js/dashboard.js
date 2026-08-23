@@ -264,6 +264,10 @@
     }).join('');
   }
 
+  function getAuditTimestamp(entry) {
+    return entry && (entry.timestamp || entry.dateTime) ? (entry.timestamp || entry.dateTime) : null;
+  }
+
   function getFilteredAuditLogs() {
     let logs = [...state.auditLogs];
 
@@ -280,7 +284,11 @@
 
     if (state.auditDateFilter) {
       logs = logs.filter((entry) => {
-        return new Date(entry.dateTime).toISOString().slice(0, 10) === state.auditDateFilter;
+        const auditTime = getAuditTimestamp(entry);
+        if (!auditTime) {
+          return false;
+        }
+        return new Date(auditTime).toISOString().slice(0, 10) === state.auditDateFilter;
       });
     }
 
@@ -296,19 +304,24 @@
     dom.auditCount.textContent = `${logs.length} event${logs.length === 1 ? '' : 's'}`;
 
     const visibleLogs = logs.slice(0, state.auditVisibleCount);
-    dom.auditTbody.innerHTML = visibleLogs.map((entry) => `
-      <tr>
-        <td>${entry.fileName}</td>
-        <td><span class="status-badge ${getActionBadgeClass(entry.action)}">${entry.action}</span></td>
-        <td>${entry.user}</td>
-        <td>${formatDateTime(entry.dateTime)}</td>
-        <td>${entry.ipAddress}</td>
-        <td><span class="status-badge ${getStatusBadgeClass(entry.status)}">${entry.status}</span></td>
-      </tr>
-    `).join('');
+    dom.auditTbody.innerHTML = visibleLogs.map((entry) => {
+      const auditTime = getAuditTimestamp(entry);
+      return `
+        <tr>
+          <td>${entry.fileName}</td>
+          <td><span class="status-badge ${getActionBadgeClass(entry.action)}">${entry.action}</span></td>
+          <td>${entry.user || 'Unknown'}</td>
+          <td>${formatDateTime(auditTime)}</td>
+          <td>${entry.ipAddress || 'N/A'}</td>
+          <td><span class="status-badge ${getStatusBadgeClass(entry.status)}">${entry.status}</span></td>
+        </tr>
+      `;
+    }).join('');
 
     dom.auditEmptyState.hidden = logs.length > 0;
-    dom.loadMoreAuditButton.hidden = logs.length <= state.auditVisibleCount;
+    const hasMore = logs.length > state.auditVisibleCount;
+    dom.loadMoreAuditButton.hidden = !hasMore;
+    dom.loadMoreAuditButton.disabled = !hasMore;
   }
 
   function renderDetailsModal(file) {
@@ -446,15 +459,32 @@
     try {
       const response = await window.SecureVaultAPI.uploadFile({
         fileName: state.selectedFile.name,
-        fileType: window.SecureVaultAPI.getFileTypeFromName(state.selectedFile.name),
+        fileType: state.selectedFile.type || window.SecureVaultAPI.getFileTypeFromName(state.selectedFile.name),
         size: state.selectedFile.size
       });
 
-      if (!response.success) {
-        throw new Error(response.message || 'Upload failed');
+      console.debug('[SecureVault] POST /upload response', response);
+
+      if (!response || response.success !== true) {
+        throw new Error(response && response.message ? response.message : 'Upload request failed.');
       }
 
-      showToast('Success', response.message || 'Document uploaded successfully.', 'success');
+      const uploadUrl = response.uploadUrl || (response.data && response.data.uploadUrl);
+      console.debug('[SecureVault] uploadUrl present:', Boolean(uploadUrl), 'file present:', Boolean(state.selectedFile));
+
+      if (!uploadUrl) {
+        throw new Error('Upload URL missing from upload response.');
+      }
+
+      console.debug('[SecureVault] Calling uploadToS3()', { uploadUrl, fileName: state.selectedFile.name, fileType: state.selectedFile.type });
+      const s3UploadResult = await window.SecureVaultAPI.uploadToS3(uploadUrl, state.selectedFile);
+      console.debug('[SecureVault] S3 PUT result', s3UploadResult);
+
+      if (!s3UploadResult || s3UploadResult.success !== true) {
+        throw new Error(s3UploadResult && s3UploadResult.message ? s3UploadResult.message : 'S3 upload failed.');
+      }
+
+      showToast('Success', 'Document uploaded successfully.', 'success');
       await loadData();
       resetUploadState();
     } catch (error) {
@@ -470,50 +500,119 @@
   }
 
   async function handleDownload(fileId) {
-    const response = await window.SecureVaultAPI.downloadFile(fileId);
-    if (!response.success) {
-      showToast('Error', response.message || 'Download failed.', 'error');
-      return;
-    }
+    try {
+      const file = state.documents.find((item) => item.fileId === fileId);
 
-    showToast('Info', response.message || 'Download link generated.', 'info');
-    await loadData(false);
+      if (!file) {
+        showToast('Error', 'File not found.', 'error');
+        return;
+      }
+
+      const response = await window.SecureVaultAPI.downloadFile(fileId);
+
+      if (!response || !response.success || !response.downloadUrl) {
+        showToast(
+          'Error',
+          response?.message || 'Download link unavailable.',
+          'error'
+        );
+        return;
+      }
+
+      console.log('[SecureVault] Download URL received');
+
+      const fileResponse = await fetch(response.downloadUrl);
+
+      if (!fileResponse.ok) {
+        throw new Error('Unable to download file from S3.');
+      }
+
+      const blob = await fileResponse.blob();
+
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = blobUrl;
+      link.download = file.fileName;
+
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+      showToast('Success', 'File downloaded successfully.', 'success');
+
+      await loadData(false);
+    } catch (error) {
+      console.error('[SecureVault] Download error:', error);
+      showToast('Error', error.message || 'Download failed.', 'error');
+    }
   }
 
   async function handleDelete(fileId) {
-    const file = state.documents.find((item) => item.fileId === fileId);
-    if (!file) {
-      showToast('Error', 'File not found.', 'error');
-      return;
-    }
+    console.log('[SecureVault] handleDelete START', fileId);
 
-    const confirmed = window.confirm(`Delete ${file.fileName}? This demo action can be reversed only by re-uploading the file.`);
-    if (!confirmed) {
-      return;
-    }
+    try {
+      const file = state.documents.find((item) => item.fileId === fileId);
+      console.log('[SecureVault] file found', file);
+      if (!file) {
+        console.warn('[SecureVault] File not found in state.documents', fileId);
+        showToast('Error', 'File not found.', 'error');
+        return;
+      }
 
-    const response = await window.SecureVaultAPI.deleteFile(fileId);
-    if (!response.success) {
-      showToast('Error', response.message || 'Delete failed.', 'error');
-      return;
-    }
+      console.log('[SecureVault] showing delete confirmation');
+      const confirmed = window.confirm(`Delete ${file.fileName}? This demo action can be reversed only by re-uploading the file.`);
+      console.log('[SecureVault] confirmation result', confirmed);
+      if (!confirmed) {
+        console.log('[SecureVault] Delete cancelled by user', fileId);
+        return;
+      }
 
-    showToast('Success', response.message || 'File deleted successfully.', 'success');
-    await loadData();
+      console.log('[SecureVault] calling deleteFile', fileId);
+      const response = await window.SecureVaultAPI.deleteFile(fileId);
+      console.log('[SecureVault] deleteFile response', response);
+      if (!response || !response.success) {
+        showToast('Error', response?.message || 'Delete failed.', 'error');
+        return;
+      }
+
+      showToast('Success', response.message || 'File deleted successfully.', 'success');
+      await loadData();
+    } catch (error) {
+      console.error('[SecureVault] Delete error', error);
+      showToast('Error', error.message || 'Delete failed.', 'error');
+    }
   }
 
   async function handleDetails(fileId) {
-    const response = await window.SecureVaultAPI.getFile(fileId);
-    if (!response.success || !response.file) {
-      showToast('Error', 'File details unavailable.', 'error');
-      return;
-    }
+    console.log('[SecureVault] View Details clicked', fileId);
+    console.log('[SecureVault] View Details request started');
 
-    state.detailsFileId = fileId;
-    if (dom.detailsModal) {
-      dom.detailsModal.removeAttribute('aria-hidden');
+    try {
+      const response = await window.SecureVaultAPI.getFile(fileId);
+      console.log('[SecureVault] View Details response', response);
+
+      if (!response || !response.success || !response.file) {
+        showToast('Error', response?.message || 'File details unavailable.', 'error');
+        return;
+      }
+
+      const file = response.file;
+      console.log('[SecureVault] View Details file', file);
+
+      state.detailsFileId = fileId;
+      if (dom.detailsModal) {
+        dom.detailsModal.removeAttribute('aria-hidden');
+        dom.detailsModal.hidden = false;
+      }
+
+      renderDetailsModal(file);
+    } catch (error) {
+      console.error('[SecureVault] View Details error', error);
+      showToast('Error', error.message || 'File details unavailable.', 'error');
     }
-    renderDetailsModal(response.file);
   }
 
   async function copyFileId(fileId) {
@@ -538,13 +637,18 @@
       return;
     }
 
-    const { action, fileId } = button.dataset;
+    const actionElement = button.closest('[data-action]') || button;
+    const fileIdFromButton = actionElement.dataset.fileId || button.dataset.fileId;
+    const fileId = button.dataset.fileId || fileIdFromButton;
+    const { action } = button.dataset;
 
     if (action === 'menu') {
+      event.stopPropagation();
       toggleMenu(fileId);
       return;
     }
 
+    event.stopPropagation();
     state.activeMenuId = null;
     renderDocuments();
 
@@ -559,6 +663,7 @@
     }
 
     if (action === 'delete') {
+      console.log('[SecureVault] Delete action clicked', fileId);
       handleDelete(fileId);
       return;
     }
@@ -680,7 +785,21 @@
 
     if (dom.loadMoreAuditButton) {
       dom.loadMoreAuditButton.addEventListener('click', () => {
-        state.auditVisibleCount += 5;
+        console.log('[SecureVault] Audit load requested');
+        console.log('[SecureVault] Audit pagination state', {
+          visibleCount: state.auditVisibleCount,
+          totalLogs: state.auditLogs.length,
+          filteredLogs: getFilteredAuditLogs().length
+        });
+
+        const currentLogs = getFilteredAuditLogs();
+        if (currentLogs.length <= state.auditVisibleCount) {
+          dom.loadMoreAuditButton.hidden = true;
+          dom.loadMoreAuditButton.disabled = true;
+          return;
+        }
+
+        state.auditVisibleCount = Math.min(state.auditVisibleCount + 5, currentLogs.length);
         renderAuditLogs();
       });
     }
@@ -725,14 +844,19 @@
     }
 
     try {
+      console.log('[SecureVault] Audit load requested');
       const [filesResponse, auditResponse, statsResponse] = await Promise.all([
         window.SecureVaultAPI.getFiles(),
         window.SecureVaultAPI.getAuditLogs(),
         window.SecureVaultAPI.getDashboardStats()
       ]);
 
+      console.log('[SecureVault] Audit response', auditResponse);
+
       state.documents = filesResponse.files || [];
-      state.auditLogs = auditResponse.logs || [];
+      state.auditLogs = Array.isArray(auditResponse && auditResponse.logs) ? auditResponse.logs : [];
+      state.auditVisibleCount = 5;
+      console.log('[SecureVault] Audit logs count', state.auditLogs.length);
 
       renderSummaryCards((statsResponse && statsResponse.stats) || {
         totalDocuments: state.documents.length,

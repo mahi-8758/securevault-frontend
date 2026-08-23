@@ -1,10 +1,45 @@
-js/config.local.js
-js/config.js
-js/config.*.js
-!js/config.template.js
+# Environment & Configuration Files
 .env
+.env.local
+.env.development
+.env.test
+.env.production
 .env.*
 !.env.example
+!.env.template
+
+# Local JS Configuration Files
+js/config.js
+js/config.local.js
+js/config.*.js
+!js/config.template.js
+config.json
+config.local.json
+
+# Private Data & CLI Payload Files
+owner-values.json
+*-values.json
+*.values.json
+*.secret.json
+credentials.json
+secrets/
+
+# Keys & Certificates
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+
+# Logs & Runtime Data
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# System & IDE Files
 .DS_Store
 Thumbs.db
-*.log
+.vscode/
+.idea/
+node_modules/
