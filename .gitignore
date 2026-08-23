@@ -1,4 +1,10 @@
 js/config.local.js
+js/config.js
+js/config.*.js
+!js/config.template.js
+.env
+.env.*
+!.env.example
 .DS_Store
 Thumbs.db
 *.log
