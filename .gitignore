@@ -9,9 +9,9 @@
 !.env.template
 
 # Local JS Configuration Files
-js/config.js
 js/config.local.js
 js/config.*.js
+!js/config.js
 !js/config.template.js
 config.json
 config.local.json

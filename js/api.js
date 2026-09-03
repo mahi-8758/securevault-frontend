@@ -12,11 +12,14 @@
       throw new Error('Live API requests are unavailable in file mode. Use a local HTTP server.');
     }
 
-    if (!apiEndpoint || apiEndpoint.includes('__API_ENDPOINT__')) {
+    const currentConfig = window.SECUREVAULT_CONFIG || {};
+    const currentEndpoint = String(currentConfig.apiEndpoint || apiEndpoint || '').replace(/\/$/, '');
+
+    if (!currentEndpoint || currentEndpoint.includes('__API_ENDPOINT__')) {
       throw new Error('SecureVault API endpoint is not configured.');
     }
 
-    return apiEndpoint;
+    return currentEndpoint;
   }
 
   async function getAuthHeaders() {
