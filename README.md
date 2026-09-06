@@ -8,6 +8,24 @@ SecureVault Frontend is a modern, responsive web application designed for secure
 
 This video demonstrates the working web application interface and its core file management and access audit capabilities.
 
+---
+
+## 🏗️ AWS Architecture
+
+<p align="center">
+  <img
+    src="https://github.com/mahi-8758/pulsewatch-frontend/blob/main/aws%20architecture%20diagram.jpg"
+    alt="PulseWatch AWS Architecture"
+    width="1000"
+  />
+</p>
+
+<p align="center">
+  <i>High-level AWS architecture of the PulseWatch monitoring platform.</i>
+</p>
+
+---
+
 ## ✨ Features
 
 - **User Authentication & Verification**: User registration, sign-in, and email verification code confirmation powered by Amazon Cognito.
