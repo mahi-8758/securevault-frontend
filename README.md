@@ -437,7 +437,7 @@ SecureVault demonstrates practical implementation of:
 
 # 👨‍💻 Author
 
-**Mahi Gupta**
+**Mahi Kumar**
 
 SecureVault is an AWS cloud project demonstrating secure serverless application architecture and practical cloud engineering concepts.
 
