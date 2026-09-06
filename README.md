@@ -1,141 +1,460 @@
-# 🔐 SecureVault Frontend
+# 🔐 SecureVault — AWS Secure File Management Frontend
 
-SecureVault Frontend is a modern, responsive web application designed for secure cloud document management and access monitoring. It provides an intuitive interface for Amazon Cognito user authentication, direct-to-Amazon S3 file uploads and downloads using presigned URLs, file metadata management, and audit activity tracking.
+<p align="center">
+  <strong>A secure, serverless cloud file management web application built with AWS</strong>
+</p>
 
-## 🎥 Project Demo
-
-▶️ [Watch SecureVault Project Demo](https://youtu.be/W42Mjil9OKo)
-
-This video demonstrates the working web application interface and its core file management and access audit capabilities.
+<p align="center">
+  <a href="https://youtu.be/W42Mjil9OKo">🎥 Live Demo</a> •
+  <a href="https://github.com/mahi-8758/securevault-backend">Backend</a> •
+  <a href="https://github.com/mahi-8758/securevault-infrastructure">Infrastructure</a>
+</p>
 
 ---
 
-## 🏗️ AWS Architecture
+## 📌 Overview
+
+**SecureVault** is a secure, responsive cloud-based file management application that allows authenticated users to upload, view, download, delete, and manage documents while maintaining a complete audit trail of file-related activities.
+
+The frontend is built using **HTML, CSS, and JavaScript** and integrates with AWS through a serverless REST API.
+
+Authentication is handled by **Amazon Cognito**, API requests are processed through **Amazon API Gateway and AWS Lambda**, files are stored privately in **Amazon S3**, and metadata and audit records are maintained in **Amazon DynamoDB**.
+
+The project follows a three-repository architecture:
+
+- 🎨 Frontend — User interface
+- ⚙️ Backend — Serverless API and Lambda functions
+- 🏗️ Infrastructure — AWS resources managed using Terraform
+
+---
+
+## 🎥 Project Demo
+
+<p align="center">
+  <a href="https://youtu.be/W42Mjil9OKo"><strong>▶️ Watch the SecureVault Demo</strong></a>
+</p>
+
+The demo demonstrates user authentication, email verification, file upload, file management, downloads, deletion, and audit logging.
+
+---
+
+## 🌐 Live Application
+
+**Frontend:** https://securevault-frontend-one.vercel.app/
+
+The frontend is deployed on **Vercel** and communicates with the AWS backend through API Gateway.
+
+---
+
+# 🏗️ AWS Architecture
 
 <p align="center">
   <img
     src="https://github.com/mahi-8758/securevault-frontend/blob/main/structure.jpg"
-    alt="PulseWatch AWS Architecture"
+    alt="SecureVault AWS Architecture"
     width="1000"
   />
 </p>
 
-<p align="center">
-  <i>High-level AWS architecture of the SecureVault.</i>
-</p>
+<p align="center"><em>High-level AWS architecture of SecureVault</em></p>
+
+### Architecture Flow
+
+```text
+User
+  │
+  ▼
+Vercel Frontend
+(HTML / CSS / JS)
+  │
+  ├──────────────► Amazon Cognito
+  │                  │
+  │                  └── JWT ID Token
+  │
+  ▼
+Amazon API Gateway
+       │
+       ▼
+   AWS Lambda
+       │
+       ├──────────────► Amazon S3
+       │                 Private File Storage
+       │
+       └──────────────► Amazon DynamoDB
+                         File Metadata
+                         + Audit Logs
+```
 
 ---
 
-## ✨ Features
+# ✨ Features
 
-- **User Authentication & Verification**: User registration, sign-in, and email verification code confirmation powered by Amazon Cognito.
-- **Secure Authenticated API Requests**: API Gateway requests authorized using Cognito ID JWT tokens in standard Bearer headers.
-- **Direct S3 File Uploads**: Upload documents directly to Amazon S3 via presigned PUT URLs, bypassing API payload limitations.
-- **Secure File Downloads**: Request temporary presigned GET URLs for secure, time-limited document downloads.
-- **File Management & Operations**: List documents, filter by type (PDF, DOC/DOCX, Images, Other), search, sort, view file details, and delete files.
-- **Audit Log Visibility**: View access activity history (Upload, Download, View, Delete) with search and filtering by action type and date.
-- **Interactive Drag-and-Drop Upload**: Modern upload dropzone supporting file selection and drag-and-drop with file type and size validation.
-- **Responsive Dashboard UI**: Clean layout built with modern CSS design tokens, status indicators, and dynamic UI state handling (Live API mode vs Local Demo fallback).
+### 🔐 Authentication
+- User registration
+- Email verification
+- Secure sign-in and sign-out
+- Cognito session management
+- JWT-based API authorization
 
-## ☁️ AWS Services Used
+### 📁 File Management
+- Upload files
+- View file details
+- Download files
+- Delete files
+- Search and sort files
+- Filter by file type
 
-SecureVault Frontend integrates with the following cloud services across the project architecture:
+### ☁️ Secure Cloud Storage
+- Private Amazon S3 storage
+- Temporary presigned URLs
+- Direct browser-to-S3 uploads
+- Direct S3 downloads
+- No AWS access keys exposed in frontend code
 
-- **Amazon Cognito** — Handles user identity, user pool authentication, sign-up flows, and JWT session tokens.
-- **Amazon API Gateway** — Exposes REST API endpoints (`/files`, `/upload`, `/download/{fileId}`, `/audit`) protected by Cognito authorization.
-- **AWS Lambda** — Executes serverless backend logic for presigned URL generation, file metadata management, and audit logging.
-- **Amazon S3** — Stores private document files securely using direct presigned PUT and GET transfer URLs.
-- **Amazon DynamoDB** — Persists file metadata records and access audit logs for fast, structured querying.
-- **Terraform** — Provisions and manages cloud infrastructure as code (IaC).
+### 📊 Audit Logging
+Tracks:
+- `UPLOAD`
+- `VIEW`
+- `DOWNLOAD`
+- `DELETE`
 
-> **Note**: This repository contains the frontend web application. The backend API handlers and Terraform infrastructure are maintained in separate repositories.
+### 🖱️ Modern UI
+- Responsive dashboard
+- Drag-and-drop upload
+- File validation
+- Search and filtering
+- Dynamic statistics
+- Interactive audit table
 
-## 🏗️ Application Flow
+---
 
-1. User authenticates using Amazon Cognito credentials.
-2. The frontend receives and stores the authenticated Cognito ID JWT token.
-3. Authenticated requests are sent to Amazon API Gateway with `Authorization: Bearer <ID_TOKEN>` headers.
-4. Backend AWS Lambda functions process requests and generate temporary presigned S3 URLs.
-5. Files are streamed directly to/from Amazon S3 using presigned URLs.
-6. File metadata and access audit records are written to and retrieved from Amazon DynamoDB.
-7. The frontend dynamically renders file records, summary statistics, and access audit activity in the dashboard UI.
+# ☁️ AWS Services
 
-## 📁 Project Structure
+| Service | Purpose |
+|---|---|
+| **Amazon Cognito** | Authentication and JWT tokens |
+| **Amazon API Gateway** | REST API endpoints |
+| **AWS Lambda** | Serverless backend processing |
+| **Amazon S3** | Private file storage |
+| **Amazon DynamoDB** | File metadata and audit logs |
+| **IAM** | Permissions and execution roles |
+| **Terraform** | Infrastructure as Code |
+
+---
+
+# 🔄 Application Workflow
+
+### 1. Authentication
+
+```text
+User → Frontend → Amazon Cognito → JWT ID Token
+```
+
+### 2. Authenticated API Requests
+
+The frontend sends the Cognito token with protected requests:
+
+```http
+Authorization: Bearer <ID_TOKEN>
+```
+
+### 3. Upload
+
+```text
+Frontend
+   ↓
+POST /upload
+   ↓
+API Gateway
+   ↓
+Upload Lambda
+   ↓
+Presigned S3 PUT URL
+   ↓
+Frontend → Amazon S3
+```
+
+The file is uploaded directly to S3 rather than passing the file through Lambda.
+
+### 4. Download
+
+```text
+Frontend
+   ↓
+GET /download/{fileId}
+   ↓
+API Gateway
+   ↓
+Download Lambda
+   ↓
+Presigned S3 GET URL
+   ↓
+Frontend → Amazon S3
+```
+
+### 5. File Management
+
+```text
+GET     /files
+GET     /files/{fileId}
+DELETE  /files/{fileId}
+```
+
+### 6. Audit Logging
+
+```text
+Upload / View / Download / Delete
+              ↓
+           Backend
+              ↓
+           DynamoDB
+              ↓
+        Audit Dashboard
+```
+
+---
+
+# 🔌 API Integration
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/upload` | Generate presigned upload URL |
+| `GET` | `/files` | List user's files |
+| `GET` | `/files/{fileId}` | View file details |
+| `DELETE` | `/files/{fileId}` | Delete a file |
+| `GET` | `/download/{fileId}` | Generate download URL |
+| `GET` | `/audit` | Retrieve audit logs |
+
+Protected requests use:
+
+```http
+Authorization: Bearer <ID_TOKEN>
+```
+
+---
+
+# 🛠️ Technology Stack
+
+### Frontend
+- HTML5
+- CSS3
+- JavaScript
+- Fetch API
+- Responsive UI
+
+### Authentication
+- Amazon Cognito
+- `amazon-cognito-identity-js`
+- JWT
+
+### Cloud
+- Amazon API Gateway
+- AWS Lambda
+- Amazon S3
+- Amazon DynamoDB
+- IAM
+
+### Infrastructure & Deployment
+- Terraform
+- Vercel
+
+---
+
+# 📁 Project Structure
 
 ```text
 securevault-frontend/
+│
 ├── css/
-│   └── style.css            # Custom CSS design system, theme tokens, and responsive layout styles
+│   └── style.css
+│
 ├── js/
-│   ├── api.js               # Centralized API service layer (fetch client & auth token headers)
-│   ├── auth.js              # Amazon Cognito Identity JS auth helper (signup, confirm, login, logout)
-│   ├── config.js            # Environment Cognito config (UserPoolId, ClientId, Region) [git-ignored]
-│   ├── config.local.js      # Local API Gateway endpoint configuration override [git-ignored]
-│   ├── config.template.js   # Production deployment configuration template
-│   └── dashboard.js         # Core UI interaction controller (file grid, drag-drop upload, audit table)
-├── .gitignore               # Frontend Git ignore rules (protects credentials, configs, and payloads)
-├── dashboard.html           # Main user vault dashboard interface
-├── index.html               # Authentication landing page (Sign In / Sign Up / Verification)
-└── README.md                # Frontend documentation
+│   ├── api.js
+│   ├── auth.js
+│   ├── config.js
+│   ├── config.local.js
+│   ├── config.template.js
+│   └── dashboard.js
+│
+├── dashboard.html
+├── index.html
+├── .gitignore
+└── README.md
 ```
 
-## ⚙️ How It Works
+| File | Purpose |
+|---|---|
+| `index.html` | Authentication page |
+| `dashboard.html` | Main SecureVault dashboard |
+| `style.css` | UI and responsive styling |
+| `api.js` | API communication layer |
+| `auth.js` | Cognito authentication |
+| `dashboard.js` | Dashboard and file operations |
+| `config.js` | Environment configuration |
+| `config.local.js` | Local API configuration |
+| `config.template.js` | Configuration template |
 
-1. **Authentication (`auth.js` & `index.html`)**:
-   - Uses `amazon-cognito-identity-js` to handle user signup, verification code confirmation, sign-in, and sign-out against an AWS Cognito User Pool.
-   - Manages user session state and retrieves valid Cognito ID JWT Tokens for API authorization.
+---
 
-2. **API & Direct S3 Transfers (`api.js` & `dashboard.js`)**:
-   - Sends authenticated requests with `Authorization: Bearer <ID_TOKEN>` headers to AWS API Gateway endpoints.
-   - **Upload**: Requests a presigned PUT URL from `POST /upload`, then streams binary data directly to S3 via HTTP `PUT` without sending raw files through the backend API.
-   - **Download**: Requests a presigned GET URL from `GET /download/{fileId}` for secure, temporary document access.
-   - **File Management & Audit Logs**: Fetches document metadata from `GET /files`, deletes files via `DELETE /files/{fileId}`, and retrieves access history from `GET /audit`.
+# ⚙️ Local Setup
 
-3. **Configuration System (`config.template.js`, `config.js`, `config.local.js`)**:
-   - `config.template.js` defines expected parameters: `apiEndpoint`, `userPoolId`, and `clientId`.
-   - Local environment overrides are placed in `js/config.js` and `js/config.local.js` (which are excluded from Git).
+## 1. Clone the Repository
 
-## 🚀 Setup & Running Locally
+```bash
+git clone https://github.com/mahi-8758/securevault-frontend.git
+cd securevault-frontend
+```
 
-### 1. Configure Local Environment
-Copy `js/config.template.js` to `js/config.js` or `js/config.local.js` and populate your AWS configuration parameters:
+## 2. Configure AWS Settings
+
+Use `js/config.template.js` to create your local configuration:
 
 ```javascript
 window.SECUREVAULT_CONFIG = {
-  apiEndpoint: "https://<your-api-id>.execute-api.<region>.amazonaws.com/dev",
-  userPoolId: "<your-cognito-user-pool-id>",
-  clientId: "<your-cognito-app-client-id>"
+  apiEndpoint: "https://<api-id>.execute-api.<region>.amazonaws.com/dev",
+  userPoolId: "<cognito-user-pool-id>",
+  clientId: "<cognito-app-client-id>"
 };
 ```
 
-### 2. Run Local Web Server
-Serve the static frontend using Python's built-in HTTP server:
+### Required Values
+
+| Parameter | Description |
+|---|---|
+| `apiEndpoint` | API Gateway endpoint |
+| `userPoolId` | Cognito User Pool ID |
+| `clientId` | Cognito App Client ID |
+
+**Do not commit environment-specific configuration files containing sensitive values.**
+
+## 3. Run Locally
 
 ```powershell
-cd securevault-frontend
 py -m http.server 8080
 ```
 
-### 3. Access Application
-Open `http://localhost:8080/index.html` in your browser.
+Open:
 
-> **Fallback Demo Mode**: If opened directly without configured endpoints or an active backend API, the UI safely degrades to an interactive local demo state for previewing.
+```text
+http://localhost:8080
+```
 
-## 🔒 Security
+---
 
-- **Credential Protection**: Configuration files containing environment-specific values (`js/config.js` and `js/config.local.js`) are git-ignored to prevent committing endpoints or private credentials.
-- **No AWS Keys in Frontend**: AWS IAM access keys and secret keys are never included or exposed in browser code; storage operations rely exclusively on Cognito JWT tokens and presigned URLs.
-- **Authorized API Access**: All backend REST requests require a valid Cognito ID JWT token passed in standard `Authorization: Bearer <ID_TOKEN>` headers.
-- **Direct Private Storage**: Document uploads and downloads use time-limited presigned URLs for direct transfer to private S3 buckets.
+# 🔒 Security
 
-## 📌 Repository Structure
+### No AWS Credentials in Browser
 
-SecureVault is divided into three dedicated repositories:
+The frontend does not contain AWS IAM access keys or secret keys.
 
-- [`securevault-frontend`](https://github.com/mahi-8758/securevault-frontend) — Web application user interface (HTML/CSS/JS)
-- [`securevault-backend`](https://github.com/mahi-8758/securevault-backend) — Serverless REST API and AWS Lambda handlers
-- [`securevault-infrastructure`](https://github.com/mahi-8758/securevault-infrastructure) — Terraform Infrastructure as Code (IaC) for AWS resources
+```text
+Browser
+   │ Cognito JWT
+   ▼
+API Gateway
+   ▼
+Lambda
+   ▼
+AWS Services
+```
 
-## 📄 Project Summary
+### JWT Authentication
 
-SecureVault is an AWS-based secure document management web application frontend demonstrating authentication, serverless APIs, cloud storage, metadata management, and audit tracking. By integrating Amazon Cognito, API Gateway, Lambda, S3 presigned transfers, DynamoDB, and Terraform IaC, the project showcases end-to-end cloud security and serverless web architecture best practices.
+Protected API requests require a valid Cognito ID token.
+
+### Presigned URLs
+
+Temporary S3 presigned URLs are used for controlled file uploads and downloads.
+
+### Private Storage
+
+Files are stored in private S3 storage and accessed through authorized presigned operations.
+
+### Audit Trail
+
+File activities are recorded for visibility and accountability.
+
+---
+
+# 🧩 Related Repositories
+
+### 🎨 Frontend
+https://github.com/mahi-8758/securevault-frontend
+
+### ⚙️ Backend
+https://github.com/mahi-8758/securevault-backend
+
+### 🏗️ Infrastructure
+https://github.com/mahi-8758/securevault-infrastructure
+
+---
+
+# 🎯 Project Objectives
+
+SecureVault demonstrates practical implementation of:
+
+- Serverless cloud architecture
+- Secure authentication
+- REST API development
+- Cloud file storage
+- Presigned URL architecture
+- NoSQL database management
+- Audit logging
+- Infrastructure as Code
+- Frontend-to-cloud integration
+- AWS security practices
+
+---
+
+# 📚 What I Learned
+
+- Designing serverless AWS architectures
+- Implementing Amazon Cognito authentication
+- Working with API Gateway and Lambda
+- Using S3 presigned URLs
+- Designing DynamoDB data models
+- Implementing ownership-based access control
+- Building audit logging systems
+- Managing infrastructure with Terraform
+- Connecting a static frontend to cloud APIs
+- Debugging authentication and CORS issues
+- Deploying a static frontend with Vercel
+
+---
+
+# 🚀 Future Improvements
+
+- File sharing between users
+- Role-based access control
+- Folder organization
+- File previews
+- Version history
+- Advanced search
+- Improved monitoring
+- CI/CD automation
+
+---
+
+# 👨‍💻 Author
+
+**Mahi Gupta**
+
+SecureVault is an AWS cloud project demonstrating secure serverless application architecture and practical cloud engineering concepts.
+
+---
+
+# ⭐ Project Links
+
+| Resource | Link |
+|---|---|
+| 🎨 Frontend | https://github.com/mahi-8758/securevault-frontend |
+| ⚙️ Backend | https://github.com/mahi-8758/securevault-backend |
+| 🏗️ Infrastructure | https://github.com/mahi-8758/securevault-infrastructure |
+| 🎥 Demo Video | https://youtu.be/W42Mjil9OKo |
+| 🌐 Live Frontend | https://securevault-frontend-one.vercel.app/ |
+
+---
+
+<p align="center">
+  <strong>🔐 SecureVault — Secure Files. Serverless Architecture. Cloud Native.</strong>
+</p>
