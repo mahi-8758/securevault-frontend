@@ -14,14 +14,14 @@ This video demonstrates the working web application interface and its core file 
 
 <p align="center">
   <img
-    src="https://github.com/mahi-8758/pulsewatch-frontend/blob/main/aws%20architecture%20diagram.jpg"
+    src="https://github.com/mahi-8758/securevault-frontend/blob/main/structure.jpg"
     alt="PulseWatch AWS Architecture"
     width="1000"
   />
 </p>
 
 <p align="center">
-  <i>High-level AWS architecture of the PulseWatch monitoring platform.</i>
+  <i>High-level AWS architecture of the SecureVault.</i>
 </p>
 
 ---
